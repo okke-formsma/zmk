@@ -295,6 +295,7 @@ static const struct behavior_driver_api behavior_mod_tap_driver_api = {
   .binding_released = on_modtap_key_released,
 };
 
+struct behavior_mod_tap_config {};
 static const struct behavior_mod_tap_config behavior_mod_tap_config = {};
 
 static struct behavior_mod_tap_data behavior_mod_tap_data;
