@@ -34,6 +34,22 @@ struct captured_keycode_state_change_item {
   zmk_mod_flags active_mods;
 };
 
+void send_captured_keycode_events(struct behavior_mod_tap_data *data) {
+    //send all captured key presses
+    for (int j = 0; j < ZMK_BHV_MOD_TAP_MAX_PENDING_KC; j++) {
+      if (data->captured_keycode_events[j].event == NULL) {
+        continue;
+      }
+
+      struct keycode_state_changed *ev = data->captured_keycode_events[j].event;
+      data->captured_keycode_events[j].event = NULL;
+      data->captured_keycode_events[j].active_mods = 0;
+      LOG_DBG("Re-sending latched key press for usage page 0x%02X keycode 0x%02X state %s", ev->usage_page, ev->keycode, (ev->state ? "pressed" : "released"));
+      ZMK_EVENT_RELEASE(ev);
+      k_msleep(10);
+    }
+  }
+
 struct behavior_mod_tap_config { };
 struct behavior_mod_tap_data {
   struct active_mod_tap_item active_mod_taps[ZMK_BHV_MOD_TAP_MAX_HELD];
@@ -207,19 +223,7 @@ static int on_keymap_binding_released(struct device *dev, u32_t position, u32_t 
     ZMK_EVENT_RAISE_AFTER(key_press, behavior_mod_tap);
     k_msleep(10);
 
-    //send all captured key presses
-    for (int j = 0; j < ZMK_BHV_MOD_TAP_MAX_PENDING_KC; j++) {
-      if (data->captured_keycode_events[j].event == NULL) {
-        continue;
-      }
-
-      struct keycode_state_changed *ev = data->captured_keycode_events[j].event;
-      data->captured_keycode_events[j].event = NULL; // was bug with i
-      data->captured_keycode_events[j].active_mods = 0;
-      LOG_DBG("Re-sending latched key press for usage page 0x%02X keycode 0x%02X state %s", ev->usage_page, ev->keycode, (ev->state ? "pressed" : "released"));
-      ZMK_EVENT_RELEASE(ev);
-      k_msleep(10);
-    }
+    send_captured_keycode_events(data);
 
     struct keycode_state_changed *key_release = create_keycode_state_changed(USAGE_KEYPAD, keycode, false);
     LOG_DBG("Sending un-triggered mod-tap release for keycode: 0x%02X", keycode);
