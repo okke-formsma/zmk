@@ -34,22 +34,6 @@ struct captured_keycode_state_change_item {
   zmk_mod_flags active_mods;
 };
 
-void send_captured_keycode_events(struct behavior_mod_tap_data *data) {
-    //send all captured key presses
-    for (int j = 0; j < ZMK_BHV_MOD_TAP_MAX_PENDING_KC; j++) {
-      if (data->captured_keycode_events[j].event == NULL) {
-        continue;
-      }
-
-      struct keycode_state_changed *ev = data->captured_keycode_events[j].event;
-      data->captured_keycode_events[j].event = NULL;
-      data->captured_keycode_events[j].active_mods = 0;
-      LOG_DBG("Re-sending latched key press for usage page 0x%02X keycode 0x%02X state %s", ev->usage_page, ev->keycode, (ev->state ? "pressed" : "released"));
-      ZMK_EVENT_RELEASE(ev);
-      k_msleep(10);
-    }
-  }
-
 struct behavior_mod_tap_config { };
 struct behavior_mod_tap_data {
   struct active_mod_tap_item active_mod_taps[ZMK_BHV_MOD_TAP_MAX_HELD];
@@ -70,7 +54,7 @@ bool have_pending_mods(char *label) {
   return false;
 }
 
-struct captured_keycode_state_change_item* find_pending_keycode(struct behavior_mod_tap_data *data, u32_t keycode)
+struct captured_keycode_state_change_item* find_captured_keycode_event(struct behavior_mod_tap_data *data, u32_t keycode)
 {
   for (int i = 0; i < ZMK_BHV_MOD_TAP_MAX_PENDING_KC; i++) {
     if (data->captured_keycode_events[i].event == NULL) {
@@ -85,6 +69,23 @@ struct captured_keycode_state_change_item* find_pending_keycode(struct behavior_
 
   return NULL;
 }
+
+
+void send_captured_keycode_events(struct behavior_mod_tap_data *data) {
+    //send all captured key presses
+    for (int j = 0; j < ZMK_BHV_MOD_TAP_MAX_PENDING_KC; j++) {
+      if (data->captured_keycode_events[j].event == NULL) {
+        continue;
+      }
+
+      struct keycode_state_changed *ev = data->captured_keycode_events[j].event;
+      data->captured_keycode_events[j].event = NULL;
+      data->captured_keycode_events[j].active_mods = 0;
+      LOG_DBG("Re-sending latched key press for usage page 0x%02X keycode 0x%02X state %s", ev->usage_page, ev->keycode, (ev->state ? "pressed" : "released"));
+      ZMK_EVENT_RELEASE(ev);
+      k_msleep(10);
+    }
+  }
 
 zmk_mod_flags behavior_mod_tap_active_mods(struct behavior_mod_tap_data *data)
 {
@@ -123,6 +124,16 @@ void behavior_mod_tap_update_active_mods_state(struct behavior_mod_tap_data *dat
   }
 }
 
+struct active_mod_tap_item* find_active_mod_tap_item(struct behavior_mod_tap_data *data, u32_t mods, u32_t keycode) {
+  for (int i = 0; i < ZMK_BHV_MOD_TAP_MAX_HELD; i++) {
+    struct active_mod_tap_item* item = &data->active_mod_taps[i];
+    if (item->mods == mods && item->keycode == keycode) {
+      return item;
+    }
+  }
+  return NULL;
+}
+
 // How to pass context to subscription?!
 int behavior_mod_tap_listener(const struct zmk_event_header *eh)
 {
@@ -134,14 +145,18 @@ int behavior_mod_tap_listener(const struct zmk_event_header *eh)
   struct device *dev = device_get_binding(DT_INST_LABEL(0));
   struct keycode_state_changed *ev = cast_keycode_state_changed(eh);
   struct behavior_mod_tap_data *data = dev->driver_data;
-  struct captured_keycode_state_change_item* pending_keycode;
   if (ev->state) { //pressed
     // this is the moment another key is pressed during a mod-tap event.
     LOG_DBG("Have pending mods, capturing keycode 0x%02X event to resend later", ev->keycode);
     behavior_mod_tap_capture_keycode_event(data, ev);
     return ZMK_EV_EVENT_CAPTURED;
-  } else if ((pending_keycode = find_pending_keycode(data, ev->keycode)) != NULL) { 
-    // the release of a key that was pressed during a mod-tap event
+  }
+
+  struct captured_keycode_state_change_item* pending_keycode = find_captured_keycode_event(data, ev->keycode);
+  if (pending_keycode == NULL) { 
+    // the release of a key that was pressed before the mod-tap key
+  } else {
+    // the release of a key that was pressed after the mod-tap key
     LOG_DBG("Key released, going to activate mods 0x%02X then send pending key press for keycode 0x%02X",
             pending_keycode->active_mods, pending_keycode->event->keycode);
 
@@ -167,7 +182,7 @@ static int behavior_mod_tap_init(struct device *dev)
 
 static int on_keymap_binding_pressed(struct device *dev, u32_t position, u32_t mods, u32_t keycode)
 {
-  // invoked on mod-tap key press
+  // mod-tap key pressed
   struct behavior_mod_tap_data *data = dev->driver_data;
   LOG_DBG("mods: %d, keycode: 0x%02X", mods, keycode);
   for (int i = 0; i < ZMK_BHV_MOD_TAP_MAX_HELD; i++) {
@@ -190,18 +205,9 @@ static int on_keymap_binding_pressed(struct device *dev, u32_t position, u32_t m
   return -ENOMEM;
 }
 
-struct active_mod_tap_item* find_active_mod_tap_item(struct behavior_mod_tap_data *data, u32_t mods, u32_t keycode) {
-  for (int i = 0; i < ZMK_BHV_MOD_TAP_MAX_HELD; i++) {
-    struct active_mod_tap_item* item = &data->active_mod_taps[i];
-    if (item->mods == mods && item->keycode == keycode) {
-      return item;
-    }
-    return NULL;
-  }
-}
-
 static int on_keymap_binding_released(struct device *dev, u32_t position, u32_t mods, u32_t keycode)
 {
+  // mod-tap key released
   struct behavior_mod_tap_data *data = dev->driver_data;
   LOG_DBG("mods: %d, keycode: %d", mods, keycode);
 
