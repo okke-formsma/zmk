@@ -24,7 +24,7 @@ typedef k_timeout_t (*timer_func)();
 #define ZMK_BHV_MOD_TAP_MAX_HELD 4
 #define ZMK_BHV_MOD_TAP_MAX_PENDING_KC 4
 // todo: make tapping_term configurable per-key
-#define ZMK_BHV_MOD_TAP_TAPPING_TERM 200
+#define ZMK_BHV_MOD_TAP_TAPPING_TERM K_MSEC(200)
 
 struct active_mod_tap_item {
   u32_t keycode;
@@ -144,9 +144,10 @@ static void timer_expire_handler(struct k_timer *timer)
   struct behavior_mod_tap_data *data = dev->driver_data;
 
   LOG_DBG("Timer up, going to activate pending mods then send pending key presses");
-
+  // todo: instead of this zmk_hid_register_mods, we should resend the key events
   zmk_mod_flags active_mods = behavior_mod_tap_active_mods(data);
   zmk_hid_register_mods(active_mods);
+
   behavior_mod_tap_update_active_mods_state(data, active_mods);
   send_captured_keycode_events(data);
 }
@@ -224,6 +225,9 @@ static int on_modtap_key_pressed(struct device *dev, u32_t position, u32_t mods,
     data->active_mod_taps[i].mods = mods;
     data->active_mod_taps[i].keycode = keycode;
     data->active_mod_taps[i].pending = true;
+
+    LOG_DBG("timer %p started", &data->timer);
+    k_timer_start(&data->timer, ZMK_BHV_MOD_TAP_TAPPING_TERM, K_NO_WAIT);
 
     return 0;
   }
