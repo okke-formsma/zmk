@@ -2,13 +2,13 @@ from dataclasses import dataclass
 from pprint import pp
 from typing import Optional, Type
 
+CAPTURED = 1
+
 event_queue = []
 mod_data = {}
 mods = "ctrl shift alt gui".split()
 
-def clear():
-    mod_data.clear()
-    event_queue.clear()
+
 
 def show():
     pp(mod_data)
@@ -87,6 +87,40 @@ class BalancedBehavior(Behavior):
             data.is_decided = True
             data.is_tap = False
 
+
+class TapPreferredBehavior(Behavior):
+    @staticmethod
+    def mt_keyup(data):
+        if not data.is_decided:
+            data.is_decided = True
+            data.is_tap = True
+
+    @staticmethod
+    def timer_passed(data):
+        if not data.is_decided:
+            data.is_decided = True
+            data.is_tap = False
+
+
+class ModPreferredBehavior(Behavior):
+    @staticmethod
+    def mt_keyup(data):
+        if not data.is_decided:
+            data.is_decided = True
+            data.is_tap = True
+
+    @staticmethod
+    def timer_passed(data):
+        if not data.is_decided:
+            data.is_decided = True
+            data.is_tap = False
+
+    @staticmethod
+    def other_keydown(data):
+        if not data.is_decided:
+            data.is_decided = True
+            data.is_tap = False
+
 @dataclass
 class KeyEvent():
     state: bool
@@ -102,7 +136,7 @@ def find_modtap_in_queue(tap, mod):
     for item in event_queue:
         if isinstance(item, ModTapEvent) and item.tap == tap and item.mod == mod:
             return item
-    return False
+    return None
 
 def find_key_in_queue(tap):
     for item in event_queue:
@@ -121,8 +155,7 @@ def process_queue():
                 break
 
         event_queue.pop(0)
-
-        # "raise event"
+        # RELEASE EVENTS
         result += str(event)
 
         # clean up mod_data entry on mt keyup
@@ -131,37 +164,75 @@ def process_queue():
 
     return result
 
-def mt_keydown(tap, mod, behavior=BalancedBehavior):
+def inform_active_modtaps_of_keydown():
+    # we can safely send this to all modtaps, as the event will be ignored if the
+    # behavior has already decided.
+    for data in mod_data.values():
+        data.behavior.other_keydown(data)
+
+def inform_active_modtaps_of_keyup(keydown_event):
+    # pass keyup event to all mods active since this key was pressed
+    for q_event in event_queue:
+        if q_event == keydown_event:
+            break
+        if not isinstance(q_event, ModTapEvent):
+            continue
+        data = mod_data[q_event.tap, q_event.mod]
+        data.behavior.other_keyup(data)
+
+def mt_keydown(tap, mod, behavior:Type[Behavior]=BalancedBehavior):
+    assert process_queue() == ""
     event = ModTapEvent(True, tap, mod)
-    event_queue.append(event)
+    inform_active_modtaps_of_keydown()
+
     mod_data[tap, mod] = data = ModTapData(tap, mod, behavior)
     data.behavior.mt_keydown(data)
-    #start timer
+    # return CAPTURED
+    event_queue.append(event)
     return process_queue()
 
 def mt_keyup(tap, mod):
+    assert process_queue() == ""
     data = mod_data[tap, mod]
     data.behavior.mt_keyup(data)
 
     event = ModTapEvent(False, tap, mod)
-    event_queue.append(event)
-
-    return process_queue()
+    inform_active_modtaps_of_keyup(event)
+    assert data.is_decided
+    if data.is_tap:
+        # release taps 'early' so we don't get unwanted key repeats
+        result = process_queue() + str(event)
+        del mod_data[tap, mod]
+        return result
+    else:
+        event_queue.append(event)
+        # return CAPTURED
+        return process_queue()
 
 def timer_passed(tap, mod):
+    assert process_queue() == ""
     down_event = mod_data[tap, mod]
     down_event.is_tap = False
     down_event.is_decided = True
     return process_queue()
 
 def other_keydown(key):
+    assert process_queue() == ""
     event = KeyEvent(True, key)
     if not event_queue:
         return str(event)
+
+    # nested keyup, alert behaviors
+    for _, data in mod_data.items():
+        data.behavior.other_keydown(data)
+
+    # return CAPTURED
+
     event_queue.append(event)
-    return ""
+    return process_queue()
 
 def other_keyup(key):
+    assert process_queue() == ""
     event = KeyEvent(False, key)
 
     if not event_queue:
@@ -169,14 +240,9 @@ def other_keyup(key):
 
     keydown_event = find_key_in_queue(key)
     if keydown_event:
-        # todo: only do this for mods active before the keydown event.
-        # nested keyup, alert behaviors
-        for _, data in mod_data.items():
-            data.behavior.other_keyup(data)
+        inform_active_modtaps_of_keyup(keydown_event)
     else:
-        # the key was pressed before the mod-tap
-        if not key in mods:
-            # process key-up events for non-mod keys immediately
+        if key not in mods:
             return str(event)
 
     event_queue.append(event)
@@ -184,74 +250,197 @@ def other_keyup(key):
 
 
 
-def test_1():
+def clear():
+    assert event_queue == []
+    assert mod_data == {}
+    
+def test_0():
+    assert other_keydown("j") == "Dj"
+    assert other_keyup("j") == "Uj"
     clear()
+
+
+def test_1():
     assert mt_keydown("f", "shift") == ""
     assert mt_keyup("f", "shift") == "DfUf"
+    clear()
 
 def test_2():
-    clear()
     assert mt_keydown("f", "shift") == ""
     assert timer_passed("f", "shift") == "Dshift"
     assert mt_keyup("f", "shift") == "Ushift"
+    clear()
 
 def test_3a():
-    clear()
     assert other_keydown("ctrl") == "Dctrl"
     assert mt_keydown("f", "shift") == ""
     assert other_keyup("ctrl") == ""
     assert mt_keyup("f", "shift") == "DfUctrlUf"
+    clear()
 
 def test_3b():
-    clear()
     assert other_keydown("ctrl") == "Dctrl"
     assert mt_keydown("f", "shift") == ""
     assert other_keyup("ctrl") == ""
     assert timer_passed("f", "shift") == "DshiftUctrl"
     assert mt_keyup("f", "shift") == "Ushift"
+    clear()
 
 def test_3c():
-    clear()
     assert other_keydown("j") == "Dj"
     assert mt_keydown("f", "shift") == ""
     assert other_keyup("j") == "Uj"
     assert timer_passed("f", "shift") == "Dshift"
     assert mt_keyup("f", "shift") == "Ushift"
+    clear()
 
 def test_balanced_4a():
-    clear()
     assert mt_keydown("f", "shift") == ""
     assert other_keydown("j") == ""
     assert timer_passed("f", "shift") == "DshiftDj"
     assert other_keyup("j") == "Uj"
     assert mt_keyup("f", "shift") == "Ushift"
+    clear()
 
 def test_balanced_4a1():
-    clear()
     assert mt_keydown("f", "shift") == ""
     assert other_keydown("j") == ""
     assert timer_passed("f", "shift") == "DshiftDj"
     assert mt_keyup("f", "shift") == "Ushift"
     assert other_keyup("j") == "Uj"
+    clear()
 
 def test_balanced_4b():
-    clear()
     assert mt_keydown("f", "shift") == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == "DshiftDjUj"
     assert timer_passed("f", "shift") == ""
     assert mt_keyup("f", "shift") == "Ushift"
+    clear()
 
 def test_balanced_4c():
-    clear()
     assert mt_keydown("f", "shift") == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == "DshiftDjUj"
     assert mt_keyup("f", "shift") == "Ushift"
+    clear()
 
 def test_balanced_4d():
-    clear()
     assert mt_keydown("f", "shift") == ""
     assert other_keydown("j") == ""
     assert mt_keyup("f", "shift") == "DfDjUf"
     assert other_keyup("j") == "Uj"
+    clear()
+
+
+def test_tap_preferred_4a():
+    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert other_keydown("j") == ""
+    assert timer_passed("f", "shift") == "DshiftDj"
+    assert other_keyup("j") == "Uj"
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
+
+def test_tap_preferred_4a1():
+    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert other_keydown("j") == ""
+    assert timer_passed("f", "shift") == "DshiftDj"
+    assert mt_keyup("f", "shift") == "Ushift"
+    assert other_keyup("j") == "Uj"
+    clear()
+
+def test_tap_preferred_4b():
+    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert other_keydown("j") == ""
+    assert other_keyup("j") == ""
+    assert timer_passed("f", "shift") == "DshiftDjUj"
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
+
+def test_tap_preferred_4c():
+    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert other_keydown("j") == ""
+    assert other_keyup("j") == ""
+    assert mt_keyup("f", "shift") == "DfDjUjUf"
+    clear()
+
+def test_tap_preferred_4d():
+    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert other_keydown("j") == ""
+    assert mt_keyup("f", "shift") == "DfDjUf"
+    assert other_keyup("j") == "Uj"
+    clear()
+
+
+def test_mod_preferred_4a():
+    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert other_keydown("j") == "DshiftDj"
+    assert timer_passed("f", "shift") == ""
+    assert other_keyup("j") == "Uj"
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
+
+def test_mod_preferred_4a1():
+    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert other_keydown("j") == "DshiftDj"
+    assert timer_passed("f", "shift") == ""
+    assert mt_keyup("f", "shift") == "Ushift"
+    assert other_keyup("j") == "Uj"
+    clear()
+
+def test_mod_preferred_4b():
+    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert other_keydown("j") == "DshiftDj"
+    assert other_keyup("j") == "Uj"
+    assert timer_passed("f", "shift") == ""
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
+
+def test_mod_preferred_4c():
+    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert other_keydown("j") == "DshiftDj"
+    assert other_keyup("j") == "Uj"
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
+
+def test_mod_preferred_4d():
+    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert other_keydown("j") == "DshiftDj"
+    assert mt_keyup("f", "shift") == "Ushift"
+    assert other_keyup("j") == "Uj"
+    clear()
+
+
+def test_combo_5a():
+    assert mt_keydown("f", "shift", BalancedBehavior) == ""
+    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
+    assert other_keydown("j") == ""
+    assert other_keyup("j") == "Dshift"
+    assert mt_keyup("f", "shift") == ""
+    assert mt_keyup("d", "ctrl") == "DdDjUjUshiftUd"
+    clear()
+
+
+def test_combo_5b():
+    assert mt_keydown("f", "shift", BalancedBehavior) == ""
+    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
+    assert mt_keyup("f", "shift") == "DfUf"
+    assert other_keydown("j") == ""
+    assert other_keyup("j") == ""
+    assert mt_keyup("d", "ctrl") == "DdDjUjUd"
+    clear()
+
+
+def test_combo_5c():
+    assert mt_keydown("f", "shift", BalancedBehavior) == ""
+    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
+    assert mt_keyup("d", "ctrl") == "DshiftDdUd"
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
+
+def test_combo_5d():
+    assert mt_keydown("f", "shift", BalancedBehavior) == ""
+    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
+    assert mt_keyup("d", "ctrl") == "DshiftDdUd"
+    assert mt_keyup("f", "shift") == "Ushift"
+    clear()
