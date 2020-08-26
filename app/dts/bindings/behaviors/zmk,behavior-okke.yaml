@@ -1,0 +1,15 @@
+# Copyright (c) 2020, Okke Formsma
+# SPDX-License-Identifier: MIT
+
+description: Okke's tap-hold behavior
+
+compatible: "zmk,behavior-okke"
+
+include: zero_param.yaml
+
+properties:
+  bindings:
+    type: phandle-array
+    required: true
+  tapping_term_ms:
+    type: int

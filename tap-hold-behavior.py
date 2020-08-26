@@ -8,8 +8,6 @@ event_queue = []
 mod_data = {}
 mods = "ctrl shift alt gui".split()
 
-
-
 def show():
     pp(mod_data)
     pp(event_queue)
@@ -180,9 +178,10 @@ def inform_active_modtaps_of_keyup(keydown_event):
         data = mod_data[q_event.tap, q_event.mod]
         data.behavior.other_keyup(data)
 
-def mt_keydown(tap, mod, behavior:Type[Behavior]=BalancedBehavior):
+def on_keymap_binding_pressed(tap, mod, behavior:Type[Behavior]=BalancedBehavior):
     assert process_queue() == ""
     event = ModTapEvent(True, tap, mod)
+    # start timer
     inform_active_modtaps_of_keydown()
 
     mod_data[tap, mod] = data = ModTapData(tap, mod, behavior)
@@ -191,7 +190,7 @@ def mt_keydown(tap, mod, behavior:Type[Behavior]=BalancedBehavior):
     event_queue.append(event)
     return process_queue()
 
-def mt_keyup(tap, mod):
+def on_keymap_binding_released(tap, mod):
     assert process_queue() == ""
     data = mod_data[tap, mod]
     data.behavior.mt_keyup(data)
@@ -261,186 +260,195 @@ def test_0():
 
 
 def test_1():
-    assert mt_keydown("f", "shift") == ""
-    assert mt_keyup("f", "shift") == "DfUf"
+    assert on_keymap_binding_pressed("f", "shift") == ""
+    assert on_keymap_binding_released("f", "shift") == "DfUf"
     clear()
 
 def test_2():
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert timer_passed("f", "shift") == "Dshift"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_3a():
     assert other_keydown("ctrl") == "Dctrl"
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keyup("ctrl") == ""
-    assert mt_keyup("f", "shift") == "DfUctrlUf"
+    assert on_keymap_binding_released("f", "shift") == "DfUctrlUf"
     clear()
 
 def test_3b():
     assert other_keydown("ctrl") == "Dctrl"
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keyup("ctrl") == ""
     assert timer_passed("f", "shift") == "DshiftUctrl"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_3c():
     assert other_keydown("j") == "Dj"
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keyup("j") == "Uj"
     assert timer_passed("f", "shift") == "Dshift"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
+def test_3d():
+    assert other_keydown("j") == "Dj"
+    assert on_keymap_binding_pressed("f", "shift") == ""
+    assert other_keyup("j") == "Uj"
+    assert timer_passed("f", "shift") == "Dshift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
+    clear()
+
+
 def test_balanced_4a():
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keydown("j") == ""
     assert timer_passed("f", "shift") == "DshiftDj"
     assert other_keyup("j") == "Uj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_balanced_4a1():
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keydown("j") == ""
     assert timer_passed("f", "shift") == "DshiftDj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     assert other_keyup("j") == "Uj"
     clear()
 
 def test_balanced_4b():
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == "DshiftDjUj"
     assert timer_passed("f", "shift") == ""
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_balanced_4c():
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == "DshiftDjUj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_balanced_4d():
-    assert mt_keydown("f", "shift") == ""
+    assert on_keymap_binding_pressed("f", "shift") == ""
     assert other_keydown("j") == ""
-    assert mt_keyup("f", "shift") == "DfDjUf"
+    assert on_keymap_binding_released("f", "shift") == "DfDjUf"
     assert other_keyup("j") == "Uj"
     clear()
 
 
 def test_tap_preferred_4a():
-    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", TapPreferredBehavior) == ""
     assert other_keydown("j") == ""
     assert timer_passed("f", "shift") == "DshiftDj"
     assert other_keyup("j") == "Uj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_tap_preferred_4a1():
-    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", TapPreferredBehavior) == ""
     assert other_keydown("j") == ""
     assert timer_passed("f", "shift") == "DshiftDj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     assert other_keyup("j") == "Uj"
     clear()
 
 def test_tap_preferred_4b():
-    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", TapPreferredBehavior) == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == ""
     assert timer_passed("f", "shift") == "DshiftDjUj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_tap_preferred_4c():
-    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", TapPreferredBehavior) == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == ""
-    assert mt_keyup("f", "shift") == "DfDjUjUf"
+    assert on_keymap_binding_released("f", "shift") == "DfDjUjUf"
     clear()
 
 def test_tap_preferred_4d():
-    assert mt_keydown("f", "shift", TapPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", TapPreferredBehavior) == ""
     assert other_keydown("j") == ""
-    assert mt_keyup("f", "shift") == "DfDjUf"
+    assert on_keymap_binding_released("f", "shift") == "DfDjUf"
     assert other_keyup("j") == "Uj"
     clear()
 
 
 def test_mod_preferred_4a():
-    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", ModPreferredBehavior) == ""
     assert other_keydown("j") == "DshiftDj"
     assert timer_passed("f", "shift") == ""
     assert other_keyup("j") == "Uj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_mod_preferred_4a1():
-    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", ModPreferredBehavior) == ""
     assert other_keydown("j") == "DshiftDj"
     assert timer_passed("f", "shift") == ""
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     assert other_keyup("j") == "Uj"
     clear()
 
 def test_mod_preferred_4b():
-    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", ModPreferredBehavior) == ""
     assert other_keydown("j") == "DshiftDj"
     assert other_keyup("j") == "Uj"
     assert timer_passed("f", "shift") == ""
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_mod_preferred_4c():
-    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", ModPreferredBehavior) == ""
     assert other_keydown("j") == "DshiftDj"
     assert other_keyup("j") == "Uj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_mod_preferred_4d():
-    assert mt_keydown("f", "shift", ModPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", ModPreferredBehavior) == ""
     assert other_keydown("j") == "DshiftDj"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     assert other_keyup("j") == "Uj"
     clear()
 
 
 def test_combo_5a():
-    assert mt_keydown("f", "shift", BalancedBehavior) == ""
-    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
+    assert on_keymap_binding_pressed("f", "shift", BalancedBehavior) == ""
+    assert on_keymap_binding_pressed("d", "ctrl", TapPreferredBehavior) == ""
     assert other_keydown("j") == ""
     assert other_keyup("j") == "Dshift"
-    assert mt_keyup("f", "shift") == ""
-    assert mt_keyup("d", "ctrl") == "DdDjUjUshiftUd"
+    assert on_keymap_binding_released("f", "shift") == ""
+    assert on_keymap_binding_released("d", "ctrl") == "DdDjUjUshiftUd"
     clear()
 
 
 def test_combo_5b():
-    assert mt_keydown("f", "shift", BalancedBehavior) == ""
-    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
-    assert mt_keyup("f", "shift") == "DfUf"
+    assert on_keymap_binding_pressed("f", "shift", BalancedBehavior) == ""
+    assert on_keymap_binding_pressed("d", "ctrl", TapPreferredBehavior) == ""
+    assert on_keymap_binding_released("f", "shift") == "DfUf"
     assert other_keydown("j") == ""
     assert other_keyup("j") == ""
-    assert mt_keyup("d", "ctrl") == "DdDjUjUd"
+    assert on_keymap_binding_released("d", "ctrl") == "DdDjUjUd"
     clear()
 
 
 def test_combo_5c():
-    assert mt_keydown("f", "shift", BalancedBehavior) == ""
-    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
-    assert mt_keyup("d", "ctrl") == "DshiftDdUd"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_pressed("f", "shift", BalancedBehavior) == ""
+    assert on_keymap_binding_pressed("d", "ctrl", TapPreferredBehavior) == ""
+    assert on_keymap_binding_released("d", "ctrl") == "DshiftDdUd"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
 
 def test_combo_5d():
-    assert mt_keydown("f", "shift", BalancedBehavior) == ""
-    assert mt_keydown("d", "ctrl", TapPreferredBehavior) == ""
-    assert mt_keyup("d", "ctrl") == "DshiftDdUd"
-    assert mt_keyup("f", "shift") == "Ushift"
+    assert on_keymap_binding_pressed("f", "shift", BalancedBehavior) == ""
+    assert on_keymap_binding_pressed("d", "ctrl", TapPreferredBehavior) == ""
+    assert on_keymap_binding_released("d", "ctrl") == "DshiftDdUd"
+    assert on_keymap_binding_released("f", "shift") == "Ushift"
     clear()
