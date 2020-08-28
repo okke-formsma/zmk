@@ -13,6 +13,7 @@ module.exports = {
       "behavior/misc",
       "behavior/mod-tap",
       "behavior/reset",
+      "behavior/tap-hold",
       "behavior/lighting",
     ],
     Development: [
