@@ -11,5 +11,5 @@ properties:
   bindings:
     type: phandle-array
     required: true
-  hold_ms:
+  tapping_term_ms:
     type: int
