@@ -19,7 +19,7 @@ fi
 testcase="$1"
 echo "Running $testcase:"
 
-west build -d build/$testcase -b native_posix -- -DZMK_CONFIG=$testcase > /dev/null 2>&1
+west build -d build/$testcase -b native_posix --pristine -- -DZMK_CONFIG=$testcase > build/$testcase/build.log #2>&1
 if [ $? -gt 0 ]; then
 	echo "FAIL: $testcase did not build"
 else
