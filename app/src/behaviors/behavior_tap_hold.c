@@ -47,11 +47,8 @@ struct behavior_tap_hold_behaviors {
 
 typedef k_timeout_t (*timer_func)();
 
-// this data is specific to a configured behavior (which may be multiple tap-hold keys)
-struct behavior_tap_hold_data {
-  struct k_timer timer;
-  struct k_work work;
-};
+struct behavior_tap_hold_data {};
+static struct behavior_tap_hold_data behavior_tap_hold_data;
 
 struct behavior_tap_hold_config {
   timer_func tapping_term_ms;
@@ -61,9 +58,11 @@ struct behavior_tap_hold_config {
 // this data is specific for each tap-hold
 struct active_tap_hold {
   s32_t position;
-  bool is_decided; //todo remove
+  bool is_decided;
   bool is_hold;
   const struct behavior_tap_hold_config *config;
+  struct k_delayed_work work;
+  bool work_is_cancelled;
 };
 
 struct active_tap_hold* undecided_tap_hold = NULL;
@@ -72,6 +71,8 @@ struct active_tap_hold active_tap_holds[ZMK_BHV_TAP_HOLD_MAX_HELD] = {{
   .is_decided = false,
   .is_hold = false,
   .config = NULL,
+  //.work is initialized in init method
+  .work_is_cancelled = false,
 }};
 struct position_state_changed* captured_position_events[ZMK_BHV_TAP_HOLD_MAX_CAPTURED_KC] = {NULL};
 
@@ -150,6 +151,7 @@ void release_captured_positions() {
 
 
 /************************************************************  ACTIVE TAP HOLD HELPER FUNCTIONS */
+
 struct active_tap_hold* find_tap_hold(u32_t position) 
 {
   for (int i = 0; i < ZMK_BHV_TAP_HOLD_MAX_HELD; i++) {
@@ -160,28 +162,26 @@ struct active_tap_hold* find_tap_hold(u32_t position)
   return NULL;
 }
 
-int store_tap_hold(u32_t position, const struct behavior_tap_hold_config* config) 
+struct active_tap_hold* store_tap_hold(u32_t position, const struct behavior_tap_hold_config* config) 
 {
   for (int i = 0; i < ZMK_BHV_TAP_HOLD_MAX_HELD; i++) {
     if (active_tap_holds[i].position == TH_POSITION_NOT_USED) {
       active_tap_holds[i].position = position;
-      active_tap_holds[i].is_decided = 0;
+      active_tap_holds[i].is_decided = false;
+      active_tap_holds[i].is_hold = false;
       active_tap_holds[i].config = config;
-      return 0;
+      return &active_tap_holds[i];
     }
   }
-  return -ENOMEM;
+  return NULL;
 }
 
-void clear_tap_hold(u32_t position) 
+void clear_tap_hold(struct active_tap_hold * tap_hold) 
 {
-  struct active_tap_hold* active_tap_hold = find_tap_hold(position);
-  if (active_tap_hold == NULL) {
-    LOG_DBG("ERROR clearing tap hold on position %d that was already cleared", position);
-    return;
-  }
-  active_tap_hold->position = TH_POSITION_NOT_USED;
-  return;
+  tap_hold->position = TH_POSITION_NOT_USED;
+  tap_hold->is_decided = false;
+  tap_hold->is_hold = false;
+  tap_hold->work_is_cancelled= false;
 }
 
 void decide_tap_hold(struct active_tap_hold * tap_hold, u32_t event)
@@ -230,33 +230,35 @@ void decide_tap_hold(struct active_tap_hold * tap_hold, u32_t event)
 }
 
 /************************************************************  tap_hold_binding and key handlers */
-static int behavior_tap_hold_init(struct device *dev)
-{
-  return 0;
-}
+
 
 static int on_tap_hold_binding_pressed(struct device *dev, u32_t position, u32_t _, u32_t __)
 {
-  struct behavior_tap_hold_data *data = dev->driver_data;
   const struct behavior_tap_hold_config *cfg = dev->config_info;
 
-  store_tap_hold(position, cfg);
+  struct active_tap_hold *tap_hold = store_tap_hold(position, cfg);
 
   //todo: once we get timing info for keypresses, start the timer relative to the original keypress
-  //todo: maybe init timer and work here to be able to refer to the correct mod-tap?
+  // don't forget to simulate a timer-event before the event after that time was handled.
 
   LOG_DBG("key down: tap-hold on position: %d", position);
-  LOG_DBG("timer %p started", &data->timer);
-  k_timer_start(&data->timer, cfg->tapping_term_ms(), K_NO_WAIT);
+  LOG_DBG("timer %p started", &tap_hold->work);
+  k_delayed_work_submit(&tap_hold->work, cfg->tapping_term_ms());
   return 0;
 }
 
 static int on_tap_hold_binding_released(struct device *dev, u32_t position, u32_t _, u32_t __)
 {
-  struct behavior_tap_hold_data *data = dev->driver_data;
-  //const struct behavior_tap_hold_config *cfg = dev->config_info;
-  k_timer_stop(&data->timer);
-  decide_tap_hold(find_tap_hold(position), TH_KEY_UP);
+  struct active_tap_hold *tap_hold = find_tap_hold(position);
+  int work_cancel_result = k_delayed_work_cancel(&tap_hold->work);
+  decide_tap_hold(tap_hold, TH_KEY_UP);
+
+  if(work_cancel_result == -EINPROGRESS) {
+    // let the timer handler clean up
+    tap_hold->work_is_cancelled = true;
+  } else {
+    clear_tap_hold(tap_hold);
+  }
   return 0;
 }
 
@@ -282,7 +284,6 @@ int behavior_tap_hold_listener(const struct zmk_event_header *eh)
     return 0;
   }
 
-
   if (ev->state) { 
     // key down
     LOG_DBG("Pending tap-hold %d. Capturing position %d down event", undecided_tap_hold->position, ev->position);
@@ -307,28 +308,31 @@ int behavior_tap_hold_listener(const struct zmk_event_header *eh)
   return 0;
 }
 
-
 ZMK_LISTENER(behavior_tap_hold, behavior_tap_hold_listener);
 ZMK_SUBSCRIPTION(behavior_tap_hold, position_state_changed);
 
 /************************************************************  TIMER FUNCTIONS */
-static struct behavior_tap_hold_data behavior_tap_hold_data;
-
 static void behavior_tap_hold_timer_work_handler(struct k_work *item)
 {
-  //todo: what happens if the timer runs out just as the key-up was processed?
-  //struct behavior_tap_hold_data *data = CONTAINER_OF(item, struct behavior_tap_hold_data, work);
-  decide_tap_hold(undecided_tap_hold, TH_TIMER_EVENT);
+  struct active_tap_hold *tap_hold = CONTAINER_OF(item, struct active_tap_hold, work);
+  if(undecided_tap_hold->work_is_cancelled) {
+    clear_tap_hold(tap_hold);
+  } else {
+    decide_tap_hold(undecided_tap_hold, TH_TIMER_EVENT);
+  }
 }
 
-K_WORK_DEFINE(behavior_tap_hold_timer_work, behavior_tap_hold_timer_work_handler);
-
-static void behavior_tap_hold_timer_expiry_handler(struct k_timer *timer)
-{
-  k_work_submit(&behavior_tap_hold_timer_work);
+static int behavior_tap_hold_init(struct device *dev)
+{ 
+  static bool init_first_run = true;
+  if(init_first_run) {
+    for (int i = 0; i < ZMK_BHV_TAP_HOLD_MAX_HELD; i++) {
+        k_delayed_work_init(&active_tap_holds[i].work, behavior_tap_hold_timer_work_handler);
+      }
+  }
+  init_first_run = false;
+  return 0;
 }
-
-K_TIMER_DEFINE(behavior_tap_hold_timer, behavior_tap_hold_timer_expiry_handler, NULL);
 
 #endif
 
