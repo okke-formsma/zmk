@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier: MIT
  */
-
 #pragma once
 
 #include <zmk/hid_usage.h>
@@ -1325,11 +1324,24 @@
 #define C_KEYBOARD_INPUT_ASSIST_CANCEL (HID_USAGE_CONSUMER_KEYBOARD_INPUT_ASSIST_CANCEL)
 #define C_KBIA_CANCEL (C_KEYBOARD_INPUT_ASSIST_CANCEL)
 
-#define MOD_LCTL (1 << 0x00)
-#define MOD_LSFT (1 << 0x01)
-#define MOD_LALT (1 << 0x02)
-#define MOD_LGUI (1 << 0x03)
-#define MOD_RCTL (1 << 0x04)
-#define MOD_RSFT (1 << 0x05)
-#define MOD_RALT (1 << 0x06)
-#define MOD_RGUI (1 << 0x07)
+#define MOD_LCTL 0x01
+#define MOD_LSFT 0x02
+#define MOD_LALT 0x04
+#define MOD_LGUI 0x08
+#define MOD_RCTL 0x10
+#define MOD_RSFT 0x20
+#define MOD_RALT 0x40
+#define MOD_RGUI 0x80
+
+#define SELECT_MODS(keycode) (keycode >> 24)
+#define STRIP_MODS(keycode) (keycode & ~(0xFF << 24))
+#define APPLY_MODS(mods, keycode) (mods << 24 | keycode)
+
+#define LC(keycode) APPLY_MODS(MOD_LCTL, keycode)
+#define LS(keycode) APPLY_MODS(MOD_LSFT, keycode)
+#define LA(keycode) APPLY_MODS(MOD_LALT, keycode)
+#define LG(keycode) APPLY_MODS(MOD_LGUI, keycode)
+#define RC(keycode) APPLY_MODS(MOD_RCTL, keycode)
+#define RS(keycode) APPLY_MODS(MOD_RSFT, keycode)
+#define RA(keycode) APPLY_MODS(MOD_RALT, keycode)
+#define RG(keycode) APPLY_MODS(MOD_RGUI, keycode)

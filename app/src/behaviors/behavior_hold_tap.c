@@ -8,6 +8,7 @@
 
 #include <device.h>
 #include <drivers/behavior.h>
+#include <dt-bindings/zmk/keys.h>
 #include <logging/log.h>
 #include <zmk/behavior.h>
 #include <zmk/matrix.h>

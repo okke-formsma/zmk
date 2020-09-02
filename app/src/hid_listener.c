@@ -16,10 +16,11 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/hid_usage_pages.h>
 #include <zmk/endpoints.h>
 
-static int hid_listener_keycode_pressed(u8_t usage_page, u32_t keycode) {
+static int hid_listener_keycode_pressed(u8_t usage_page, u32_t keycode,
+                                        zmk_mod_flags implicit_modifiers) {
     int err;
-    LOG_DBG("usage_page 0x%02X keycode 0x%02X", usage_page, keycode);
-
+    LOG_DBG("usage_page 0x%02X keycode 0x%02X mods 0x%02X", usage_page, keycode,
+            implicit_modifiers);
     switch (usage_page) {
     case HID_USAGE_KEY:
         err = zmk_hid_keypad_press(keycode);
@@ -36,14 +37,15 @@ static int hid_listener_keycode_pressed(u8_t usage_page, u32_t keycode) {
         }
         break;
     }
-
+    zmk_hid_implicit_modifiers_press(implicit_modifiers);
     return zmk_endpoints_send_report(usage_page);
 }
 
-static int hid_listener_keycode_released(u8_t usage_page, u32_t keycode) {
+static int hid_listener_keycode_released(u8_t usage_page, u32_t keycode,
+                                         zmk_mod_flags implicit_modifiers) {
     int err;
-    LOG_DBG("usage_page 0x%02X keycode 0x%02X", usage_page, keycode);
-
+    LOG_DBG("usage_page 0x%02X keycode 0x%02X mods 0x%02X", usage_page, keycode,
+            implicit_modifiers);
     switch (usage_page) {
     case HID_USAGE_KEY:
         err = zmk_hid_keypad_release(keycode);
@@ -60,37 +62,22 @@ static int hid_listener_keycode_released(u8_t usage_page, u32_t keycode) {
         }
         break;
     }
+    // There is a minor issue with this code.
+    // If LC(A) is pressed, then LS(B), then LC(A) is released, the shift for B will be released
+    // prematurely. This causes if LS(B) to repeat like Bbbbbbbb when pressed for a long time.
+    // Solving this would require keeping track of which key's implicit modifiers are currently
+    // active and only releasing modifiers at that time.
+    zmk_hid_implicit_modifiers_release();
     return zmk_endpoints_send_report(usage_page);
-}
-
-static int hid_listener_modifiers_pressed(zmk_mod_flags modifiers) {
-    LOG_DBG("modifiers %d", modifiers);
-
-    zmk_hid_register_mods(modifiers);
-    return zmk_endpoints_send_report(HID_USAGE_KEY);
-}
-
-static int hid_listener_modifiers_released(zmk_mod_flags modifiers) {
-    LOG_DBG("modifiers %d", modifiers);
-
-    zmk_hid_unregister_mods(modifiers);
-    return zmk_endpoints_send_report(HID_USAGE_KEY);
 }
 
 int hid_listener(const struct zmk_event_header *eh) {
     if (is_keycode_state_changed(eh)) {
         const struct keycode_state_changed *ev = cast_keycode_state_changed(eh);
         if (ev->state) {
-            hid_listener_keycode_pressed(ev->usage_page, ev->keycode);
+            hid_listener_keycode_pressed(ev->usage_page, ev->keycode, ev->implicit_modifiers);
         } else {
-            hid_listener_keycode_released(ev->usage_page, ev->keycode);
-        }
-    } else if (is_modifiers_state_changed(eh)) {
-        const struct modifiers_state_changed *ev = cast_modifiers_state_changed(eh);
-        if (ev->state) {
-            hid_listener_modifiers_pressed(ev->modifiers);
-        } else {
-            hid_listener_modifiers_released(ev->modifiers);
+            hid_listener_keycode_released(ev->usage_page, ev->keycode, ev->implicit_modifiers);
         }
     }
     return 0;
@@ -98,4 +85,3 @@ int hid_listener(const struct zmk_event_header *eh) {
 
 ZMK_LISTENER(hid_listener, hid_listener);
 ZMK_SUBSCRIPTION(hid_listener, keycode_state_changed);
-ZMK_SUBSCRIPTION(hid_listener, modifiers_state_changed);
