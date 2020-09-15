@@ -1,0 +1,94 @@
+#include <dt-bindings/zmk/keys.h>
+
+/ {
+	behaviors {
+		lctl: behavior_ctl {
+			compatible = "zmk,behavior-key-press";
+			label = "MOD_CTRL";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LCTL)>;
+		};
+
+		lsft: behavior_sft {
+			compatible = "zmk,behavior-key-press";
+			label = "MOD_SHIFT";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LSFT)>;
+		};
+
+		lalt: behavior_alt {
+			compatible = "zmk,behavior-key-press";
+			label = "MOD_ALT";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LALT)>;
+		};
+
+		lgui: behavior_gui {
+			compatible = "zmk,behavior-key-press";
+			label = "MOD_GUI";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LGUI)>;
+		};
+
+
+	    rctl: behavior_rtcl {
+			compatible = "zmk,behavior-key-press";
+			label = "RCTL";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(RCTL)>;
+		};
+
+		rsft: behavior_rsft {
+			compatible = "zmk,behavior-key-press";
+			label = "RSFT";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(RSFT)>;
+		};
+
+		ralt: behavior_ralt {
+			compatible = "zmk,behavior-key-press";
+			label = "RALT";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(RALT)>;
+		};
+
+		rgui: behavior_rgui {
+			compatible = "zmk,behavior-key-press";
+			label = "RGUI";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(RGUI)>;
+		};
+
+		lctl_lalt: behavior_ctl_alt {
+			compatible = "zmk,behavior-key-press";
+			label = "CTL_ALT";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LCTL | LALT)>;
+		};
+
+		meh: behavior_meh {
+			compatible = "zmk,behavior-key-press";
+			label = "MEH";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LCTL | LSFT | LALT)>;
+		};
+
+		hypr: behavior_hypr {
+			compatible = "zmk,behavior-key-press";
+			label = "HYPR";
+			usage_page = <USAGE_KEYPAD>;
+			#binding-cells = <1>;
+            modifiers = <(LCTL | LSFT | LALT | LGUI)>;
+		};
+	};
+};

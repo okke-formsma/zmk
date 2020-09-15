@@ -116,14 +116,15 @@
 #define ATSN 0xCE
 #define BANG 0xCF
 
-#define LCTL 0xE0
-#define LSFT 0xE1
-#define LALT 0xE2
-#define LGUI 0xE3
-#define RCTL 0xE4
-#define RSFT 0xE5
-#define RALT 0xE6
-#define RGUI 0xE7
+/* not using these in favor of the flags defined below */
+// #define LCTL 0xE0
+// #define LSFT 0xE1
+// #define LALT 0xE2
+// #define LGUI 0xE3
+// #define RCTL 0xE4
+// #define RSFT 0xE5
+// #define RALT 0xE6
+// #define RGUI 0xE7
 
 #define VOLU 0x80
 #define VOLD 0x81
@@ -139,11 +140,11 @@
 #define M_VOLU 0xE9
 #define M_VOLD 0xEA
 
-#define MOD_LCTL (1 << 0x00)
-#define MOD_LSFT (1 << 0x01)
-#define MOD_LALT (1 << 0x02)
-#define MOD_LGUI (1 << 0x03)
-#define MOD_RCTL (1 << 0x04)
-#define MOD_RSFT (1 << 0x05)
-#define MOD_RALT (1 << 0x06)
-#define MOD_RGUI (1 << 0x07)
+#define LCTL (0x01 << 0x10)
+#define LSFT (0x02 << 0x10)
+#define LALT (0x04 << 0x10)
+#define LGUI (0x08 << 0x10)
+#define RCTL (0x10 << 0x10)
+#define RSFT (0x20 << 0x10)
+#define RALT (0x40 << 0x10)
+#define RGUI (0x80 << 0x10)

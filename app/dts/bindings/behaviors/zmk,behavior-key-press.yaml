@@ -11,3 +11,6 @@ properties:
   usage_page:
     type: int
     default: 0
+  modifiers:
+    type: int
+    default: 0

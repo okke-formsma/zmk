@@ -17,6 +17,10 @@
 
 #define ZMK_HID_MAX_KEYCODE GUI
 
+#define MOD_MASK (0xFF << 0x10)
+#define SELECT_MODS(keycode) (keycode >> 0x10)
+#define STRIP_MODS(keycode) (keycode & (~MOD_MASK))
+
 static const u8_t zmk_hid_report_desc[] = {
     /* USAGE_PAGE (Generic Desktop) */
     HID_GI_USAGE_PAGE,

@@ -15,23 +15,56 @@ static struct zmk_hid_keypad_report kp_report = {
 static struct zmk_hid_consumer_report consumer_report = {.report_id = 2,
                                                          .body = {.keys = {0, 0, 0, 0, 0, 0}}};
 
-#define _TOGGLE_MOD(mod, state)                                                                    \
-    if (modifier > MOD_RGUI) {                                                                     \
-        return -EINVAL;                                                                            \
-    }                                                                                              \
-    WRITE_BIT(kp_report.body.modifiers, mod, state);                                               \
-    return 0;
+// Keep track of how often a modifier was pressed.
+// Only release the modifier if the count is 0.
+static int modifier_counts[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
-int zmk_hid_register_mod(zmk_mod modifier) { _TOGGLE_MOD(modifier, true); }
-int zmk_hid_unregister_mod(zmk_mod modifier) { _TOGGLE_MOD(modifier, false); }
+int zmk_hid_register_mod(zmk_mod modifier) {
+    modifier_counts[modifier]++;
+    LOG_DBG("Modifier %d count %d", modifier, modifier_counts[modifier]);
+    WRITE_BIT(kp_report.body.modifiers, modifier, true);
+    return 0;
+}
+
+int zmk_hid_unregister_mod(zmk_mod modifier) {
+    if (modifier >= 8) {
+        LOG_ERR("This modifier does not exist %d", modifier);
+        return -EINVAL;
+    }
+    if (modifier_counts[modifier] <= 0) {
+        LOG_ERR("Tried to unregister modifier %d too often", modifier);
+        return -EINVAL;
+    }
+    modifier_counts[modifier]--;
+    LOG_DBG("Modifier %d count: %d", modifier, modifier_counts[modifier]);
+    if (modifier_counts[modifier] == 0) {
+        LOG_DBG("Modifier %d released", modifier);
+        WRITE_BIT(kp_report.body.modifiers, modifier, false);
+    }
+    return 0;
+}
 
 int zmk_hid_register_mods(zmk_mod_flags modifiers) {
-    kp_report.body.modifiers |= modifiers;
+    for (int i = 0; i < 8; i++) {
+        if ((modifiers >> i) & 1) {
+            int ret;
+            if ((ret = zmk_hid_register_mod(i)) < 0) {
+                return ret;
+            }
+        }
+    }
     return 0;
 }
 
 int zmk_hid_unregister_mods(zmk_mod_flags modifiers) {
-    kp_report.body.modifiers &= ~modifiers;
+    for (int i = 0; i < 8; i++) {
+        if ((modifiers >> i) & 1) {
+            int ret;
+            if ((ret = zmk_hid_unregister_mod(i)) < 0) {
+                return ret;
+            }
+        }
+    }
     return 0;
 }
 
@@ -63,8 +96,15 @@ int zmk_hid_unregister_mods(zmk_mod_flags modifiers) {
     }
 
 int zmk_hid_keypad_press(zmk_key code) {
-    if (code >= LCTL && code <= RGUI) {
-        return zmk_hid_register_mod(code - LCTL);
+    zmk_mod_flags mods = SELECT_MODS(code);
+    if (mods) {
+        zmk_hid_register_mods(mods);
+    }
+    code = STRIP_MODS(code);
+
+    if (code == 0) {
+        // only modifiers
+        return 0;
     }
 
     if (code > ZMK_HID_MAX_KEYCODE) {
@@ -79,8 +119,15 @@ int zmk_hid_keypad_press(zmk_key code) {
 };
 
 int zmk_hid_keypad_release(zmk_key code) {
-    if (code >= LCTL && code <= RGUI) {
-        return zmk_hid_unregister_mod(code - LCTL);
+    zmk_mod_flags mods = SELECT_MODS(code);
+    if (mods) {
+        zmk_hid_unregister_mods(mods);
+    }
+    code = STRIP_MODS(code);
+
+    if (code == 0) {
+        // only modifiers
+        return 0;
     }
 
     if (code > ZMK_HID_MAX_KEYCODE) {

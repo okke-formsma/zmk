@@ -416,8 +416,8 @@ static int position_state_changed_listener(const struct zmk_event_header *eh) {
     return ZMK_EV_EVENT_CAPTURED;
 }
 
-static bool is_mod(struct keycode_state_changed *ev) {
-    return ev->usage_page == USAGE_KEYPAD && ev->keycode >= LCTL && ev->keycode <= RGUI;
+static inline bool only_mods(struct keycode_state_changed *ev) {
+    return (ev->usage_page == USAGE_KEYPAD) && !STRIP_MODS(ev->keycode);
 }
 
 static int keycode_state_changed_listener(const struct zmk_event_header *eh) {
@@ -429,7 +429,7 @@ static int keycode_state_changed_listener(const struct zmk_event_header *eh) {
         return 0;
     }
 
-    if (!is_mod(ev)) {
+    if (!only_mods(ev)) {
         // LOG_DBG("0x%02X bubble (not a mod)", ev->keycode);
         return 0;
     }
