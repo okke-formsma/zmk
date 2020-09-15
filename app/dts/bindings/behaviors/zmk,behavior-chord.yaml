@@ -1,0 +1,17 @@
+# Copyright (c) 2020, Cody McGinnis; Okke Formsma
+# SPDX-License-Identifier: MIT
+
+description: Chord behavior
+
+compatible: "zmk,behavior-chord"
+
+include: zero_param.yaml
+
+properties:
+  bindings:
+    type: phandles
+    required: true
+  tapping_term_ms:
+    type: int
+  key-positions:
+    type: array
