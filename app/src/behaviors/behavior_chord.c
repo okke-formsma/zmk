@@ -178,15 +178,13 @@ static struct chord *currently_pressed_chord() {
 static inline int press_chord_behavior(struct active_chord *chord, s32_t timestamp) {
     const struct zmk_behavior_binding *behavior = &chord->config->behavior;
     struct device *behavior_device = device_get_binding(behavior->behavior_dev);
-    return behavior_keymap_binding_pressed(behavior_device, chord->position, chord->param1,
-                                           chord->param2, timestamp);
+    return 0;
 }
 
 static inline int release_chord_behavior(struct active_chord *chord, s32_t timestamp) {
     const struct zmk_behavior_binding *behavior = &chord->config->behavior;
     struct device *behavior_device = device_get_binding(behavior->behavior_dev);
-    return behavior_keymap_binding_released(behavior_device, chord->position, chord->param1,
-                                            chord->param2, timestamp);
+    return 0;
 }
 
 static int stop_timer(struct chord *chord) {
@@ -198,6 +196,7 @@ static int stop_timer(struct chord *chord) {
     return timer_cancel_result;
 }
 
+//is this required?
 static int on_chord_binding_pressed(struct device *dev, u32_t position, u32_t _, u32_t __,
                                     s64_t timestamp) {
     return 0;
@@ -214,50 +213,14 @@ static const struct behavior_driver_api behavior_chord_driver_api = {
 };
 
 static int chord_keycode_state_changed_listener(const struct zmk_event_header *eh) {
-    if (!is_keycode_state_changed(eh)) {
-        return 0;
-    }
+    // keypress:
+    // no keys pressed? fill candidates array, start timer
+    // otherwise filter candidates
+    // only a single candidate and fully pressed? activate behavior, cleanup
 
-    // No other key was pressed. Start the timer.
-    chord->release_at = timestamp + chord->config->release_after_ms;
-    // adjust timer in case this behavior was queued by a hold-tap
-    s32_t ms_left = chord->release_at - k_uptime_get();
-    if (ms_left > 0) {
-        k_delayed_work_submit(&chord->release_after_timer, K_MSEC(ms_left));
-    }
-
-    struct keycode_state_changed *ev = cast_keycode_state_changed(eh);
-    for (int i = 0; i < ZMK_BHV_CHORD_MAX_HELD; i++) {
-        struct active_chord *chord = &active_chords[i];
-        if (chord->position == ZMK_BHV_CHORD_POSITION_NOT_USED || chord->position == ev->position) {
-            continue;
-        }
-        // If events were queued, the timer event may be queued late or not at all.
-        // Release the one-shot if the timer should've run out in the meantime.
-        if (chord->release_at != 0 && ev->timestamp > chord->release_at) {
-            release_chord_behavior(chord, chord->release_at);
-            if (stop_timer(chord)) {
-                clear_chord(chord);
-            }
-            continue;
-        }
-
-        if (ev->state) { // key down
-            if (chord->modified_key_position != ZMK_BHV_CHORD_POSITION_NOT_USED) {
-                continue;
-            }
-            chord->modified_key_position = ev->position;
-            if (chord->release_at) {
-                stop_timer(chord);
-            }
-        } else { // key up
-            if (chord->modified_key_position != ev->position || chord->release_at == 0) {
-                continue;
-            }
-            release_chord_behavior(chord, ev->timestamp);
-        }
-    }
-    return 0;
+    // keyrelease or timer runs out
+    // currently_pressed_chord? activate behavior, clean up 
+    // otherwise release queued keys, clean up
 }
 
 ZMK_LISTENER(behavior_chord, chord_keycode_state_changed_listener);
