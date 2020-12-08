@@ -428,11 +428,6 @@ static int position_state_changed_listener(const struct zmk_event_header *eh) {
     return ZMK_EV_EVENT_CAPTURED;
 }
 
-static inline bool only_mods(struct keycode_state_changed *ev) {
-    return ev->usage_page == HID_USAGE_KEY && ev->keycode >= HID_USAGE_KEY_KEYBOARD_LEFTCONTROL &&
-           ev->keycode <= HID_USAGE_KEY_KEYBOARD_RIGHT_GUI;
-}
-
 static int keycode_state_changed_listener(const struct zmk_event_header *eh) {
     // we want to catch layer-up events too... how?
     struct keycode_state_changed *ev = cast_keycode_state_changed(eh);
@@ -442,7 +437,7 @@ static int keycode_state_changed_listener(const struct zmk_event_header *eh) {
         return 0;
     }
 
-    if (!only_mods(ev)) {
+    if (!IS_MOD(ev->usage_page, ev->keycode)) {
         // LOG_DBG("0x%02X bubble (not a mod)", ev->keycode);
         return 0;
     }

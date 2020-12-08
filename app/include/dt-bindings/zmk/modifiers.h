@@ -26,3 +26,7 @@
 #define RS(keycode) APPLY_MODS(MOD_RSFT, keycode)
 #define RA(keycode) APPLY_MODS(MOD_RALT, keycode)
 #define RG(keycode) APPLY_MODS(MOD_RGUI, keycode)
+
+#define IS_MOD(usage_page, keycode)                                                                \
+    (usage_page == HID_USAGE_KEY && keycode >= HID_USAGE_KEY_KEYBOARD_LEFTCONTROL &&               \
+     keycode <= HID_USAGE_KEY_KEYBOARD_RIGHT_GUI)
