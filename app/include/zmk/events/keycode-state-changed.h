@@ -17,6 +17,7 @@ struct keycode_state_changed {
     u8_t usage_page;
     u32_t keycode;
     u8_t implicit_modifiers;
+    u8_t explicit_modifiers;
     bool state;
     s64_t timestamp;
 };
@@ -27,7 +28,6 @@ static inline struct keycode_state_changed *
 keycode_state_changed_from_encoded(u32_t encoded, bool pressed, s64_t timestamp) {
     u16_t page = HID_USAGE_PAGE(encoded) & 0xFF;
     u16_t id = HID_USAGE_ID(encoded);
-    zmk_mod_flags implicit_mods = SELECT_MODS(encoded);
 
     if (!page) {
         page = HID_USAGE_KEY;
@@ -36,8 +36,14 @@ keycode_state_changed_from_encoded(u32_t encoded, bool pressed, s64_t timestamp)
     struct keycode_state_changed *ev = new_keycode_state_changed();
     ev->usage_page = page;
     ev->keycode = id;
-    ev->implicit_modifiers = implicit_mods;
     ev->state = pressed;
     ev->timestamp = timestamp;
+
+    if (IS_MOD(page, id)) {
+        ev->explicit_modifiers = SELECT_MODS(encoded);
+    } else {
+        ev->explicit_modifiers = SELECT_MODS(encoded);
+    }
+
     return ev;
 }

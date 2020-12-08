@@ -18,8 +18,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static int hid_listener_keycode_pressed(const struct keycode_state_changed *ev) {
     int err;
-    LOG_DBG("usage_page 0x%02X keycode 0x%02X mods 0x%02X", ev->usage_page, ev->keycode,
-            ev->implicit_modifiers);
+    LOG_DBG("usage_page 0x%02X keycode 0x%02X implicit_mods 0x%02X explicit_mods 0x%02X",
+            ev->usage_page, ev->keycode, ev->implicit_modifiers, ev->explicit_modifiers);
     switch (ev->usage_page) {
     case HID_USAGE_KEY:
         err = zmk_hid_keyboard_press(ev->keycode);
@@ -37,13 +37,14 @@ static int hid_listener_keycode_pressed(const struct keycode_state_changed *ev) 
         break;
     }
     zmk_hid_implicit_modifiers_press(ev->implicit_modifiers);
+    zmk_hid_explicit_modifiers_press(ev->explicit_modifiers);
     return zmk_endpoints_send_report(ev->usage_page);
 }
 
 static int hid_listener_keycode_released(const struct keycode_state_changed *ev) {
     int err;
-    LOG_DBG("usage_page 0x%02X keycode 0x%02X mods 0x%02X", ev->usage_page, ev->keycode,
-            ev->implicit_modifiers);
+    LOG_DBG("usage_page 0x%02X keycode 0x%02X implicit_mods 0x%02X explicit_mods 0x%02X",
+            ev->usage_page, ev->keycode, ev->implicit_modifiers, ev->explicit_modifiers);
     switch (ev->usage_page) {
     case HID_USAGE_KEY:
         err = zmk_hid_keyboard_release(ev->keycode);
@@ -65,6 +66,8 @@ static int hid_listener_keycode_released(const struct keycode_state_changed *ev)
     // Solving this would require keeping track of which key's implicit modifiers are currently
     // active and only releasing modifiers at that time.
     zmk_hid_implicit_modifiers_release();
+    zmk_hid_explicit_modifiers_release(ev->explicit_modifiers);
+
     return zmk_endpoints_send_report(usage_page);
 }
 
