@@ -45,19 +45,19 @@
 
 #define MOVE(hor, vert) (MOVE_HOR(hor) + MOVE_VERT(vert))
 
-/* Mouse wheel behavior */
+/* Mouse scroll behavior */
 
-#define WHEEL_UP WHEEL_VERT(1)
+#define SCROLL_UP SCROLL_VERT(1)
 
-#define WHEEL_DOWN WHEEL_VERT(-1)
+#define SCROLL_DOWN SCROLL_VERT(-1)
 
-#define WHEEL_LEFT WHEEL_HOR(-1)
+#define SCROLL_LEFT SCROLL_HOR(-1)
 
-#define WHEEL_RIGHT WHEEL_HOR(1)
+#define SCROLL_RIGHT SCROLL_HOR(1)
 
 /* -127 to 127, barely usable beyond about 10 */
-#define WHEEL_VERT(vert) ((vert)&0xFF)
+#define SCROLL_VERT(vert) ((vert)&0xFF)
 
-#define WHEEL_HOR(hor) (((hor)&0xFF) << 8)
+#define SCROLL_HOR(hor) (((hor)&0xFF) << 8)
 
-#define WHEEL(hor, vert) (WHEEL_HOR(hor) + WHEEL_VERT(vert))
+#define WHEEL(hor, vert) (SCROLL_HOR(hor) + SCROLL_VERT(vert))

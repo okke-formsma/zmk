@@ -1,0 +1,9 @@
+/ {
+	behaviors {
+		/omit-if-no-ref/ mwh: msc: behavior_mouse_scroll {
+			compatible = "zmk,behavior-mouse-scroll";
+			label = "MOUSE_SCROLL";
+			#binding-cells = <1>;
+		};
+	};
+};

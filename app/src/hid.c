@@ -16,7 +16,7 @@ static struct zmk_hid_keyboard_report keyboard_report = {
 static struct zmk_hid_consumer_report consumer_report = {.report_id = 2, .body = {.keys = {0}}};
 
 static struct zmk_hid_mouse_report mouse_report = {
-    .report_id = 4, .body = {.buttons = 0, .x = 0, .y = 0, .wheel_vert = 0, .wheel_hor = 0}};
+    .report_id = 4, .body = {.buttons = 0, .x = 0, .y = 0, .scroll_vert = 0, .scroll_hor = 0}};
 
 // Keep track of how often a modifier was pressed.
 // Only release the modifier if the count is 0.
@@ -212,25 +212,25 @@ int zmk_hid_mouse_movement_release(int16_t x, int16_t y) {
     return 0;
 }
 
-#define SET_MOUSE_WHEEL(horiz, vertic)                                                             \
+#define SET_MOUSE_SCROLL(horiz, vertic)                                                            \
     {                                                                                              \
-        mouse_report.body.wheel_hor = horiz;                                                       \
-        LOG_DBG("Mouse wheel hor set to 0x%02X", mouse_report.body.wheel_hor);                     \
-        mouse_report.body.wheel_vert = vertic;                                                     \
-        LOG_DBG("Mouse wheel vert set to 0x%02X", mouse_report.body.wheel_vert);                   \
+        mouse_report.body.scroll_hor = horiz;                                                      \
+        LOG_DBG("Mouse scroll hor set to 0x%02X", mouse_report.body.scroll_hor);                   \
+        mouse_report.body.scroll_vert = vertic;                                                    \
+        LOG_DBG("Mouse scroll vert set to 0x%02X", mouse_report.body.scroll_vert);                 \
     }
 
-int zmk_hid_mouse_wheel_press(int8_t hor, int8_t vert) {
+int zmk_hid_mouse_scroll_press(int8_t hor, int8_t vert) {
     curr_hor += hor;
     curr_vert += vert;
-    SET_MOUSE_WHEEL(curr_hor, curr_vert);
+    SET_MOUSE_SCROLL(curr_hor, curr_vert);
     return 0;
 }
 
-int zmk_hid_mouse_wheel_release(int8_t hor, int8_t vert) {
+int zmk_hid_mouse_scroll_release(int8_t hor, int8_t vert) {
     curr_hor -= hor;
     curr_vert -= vert;
-    SET_MOUSE_WHEEL(curr_hor, curr_vert);
+    SET_MOUSE_SCROLL(curr_hor, curr_vert);
     return 0;
 }
 
