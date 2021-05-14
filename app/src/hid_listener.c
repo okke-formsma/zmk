@@ -11,7 +11,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
-#include <zmk/events/mouse_state_changed.h>
+#include <zmk/events/mouse_move_state_changed.h>
+#include <zmk/events/mouse_scroll_state_changed.h>
 #include <zmk/events/modifiers_state_changed.h>
 #include <zmk/hid.h>
 #include <dt-bindings/zmk/hid_usage_pages.h>
@@ -102,25 +103,49 @@ void mouse_timer_unref() {
     }
 }
 
-static int hid_listener_mouse_pressed(const struct zmk_mouse_state_changed *ev) {
+static int hid_listener_mouse_move_pressed(const struct zmk_mouse_move_state_changed *ev) {
     int err;
     LOG_DBG("x: 0x%02X, y: 0x%02X", ev->x, ev->y);
     err = zmk_hid_mouse_movement_press(ev->x, ev->y);
     if (err) {
-        LOG_ERR("Unable to press button");
+        LOG_ERR("Unable to press mouse move");
         return err;
     }
     mouse_timer_ref();
     return 0;
 }
 
-static int hid_listener_mouse_released(const struct zmk_mouse_state_changed *ev) {
+static int hid_listener_mouse_move_released(const struct zmk_mouse_move_state_changed *ev) {
     int err;
     LOG_DBG("x: 0x%02X, y: 0x%02X", ev->x, ev->y);
     err = zmk_hid_mouse_movement_release(ev->x, ev->y);
     if (err) {
-        LOG_ERR("Unable to release button");
+        LOG_ERR("Unable to release mouse move");
         mouse_timer_unref();
+        return err;
+    }
+    mouse_timer_unref();
+    return 0;
+}
+
+static int hid_listener_mouse_scroll_pressed(const struct zmk_mouse_scroll_state_changed *ev) {
+    int err;
+    LOG_DBG("x: 0x%02X, y: 0x%02X", ev->x, ev->y);
+    err = zmk_hid_mouse_scroll_press(ev->x, ev->y);
+    if (err) {
+        LOG_ERR("Unable to press mouse scroll");
+        return err;
+    }
+    mouse_timer_ref();
+    return 0;
+}
+
+static int hid_listener_mouse_scroll_released(const struct zmk_mouse_scroll_state_changed *ev) {
+    int err;
+    LOG_DBG("x: 0x%02X, y: 0x%02X", ev->x, ev->y);
+    err = zmk_hid_mouse_scroll_release(ev->x, ev->y);
+    if (err) {
+        LOG_ERR("Unable to release mouse scroll");
         return err;
     }
     mouse_timer_unref();
@@ -137,12 +162,21 @@ int hid_listener(const zmk_event_t *eh) {
         }
         return 0;
     }
-    const struct zmk_mouse_state_changed *ms_ev = as_zmk_mouse_state_changed(eh);
-    if (ms_ev) {
-        if (ms_ev->state) {
-            hid_listener_mouse_pressed(ms_ev);
+    const struct zmk_mouse_move_state_changed *mmv_ev = as_zmk_mouse_move_state_changed(eh);
+    if (mmv_ev) {
+        if (mmv_ev->state) {
+            hid_listener_mouse_move_pressed(mmv_ev);
         } else {
-            hid_listener_mouse_released(ms_ev);
+            hid_listener_mouse_move_released(mmv_ev);
+        }
+        return 0;
+    }
+    const struct zmk_mouse_scroll_state_changed *msc_ev = as_zmk_mouse_scroll_state_changed(eh);
+    if (msc_ev) {
+        if (msc_ev->state) {
+            hid_listener_mouse_scroll_pressed(msc_ev);
+        } else {
+            hid_listener_mouse_scroll_released(msc_ev);
         }
         return 0;
     }
@@ -151,4 +185,5 @@ int hid_listener(const zmk_event_t *eh) {
 
 ZMK_LISTENER(hid_listener, hid_listener);
 ZMK_SUBSCRIPTION(hid_listener, zmk_keycode_state_changed);
-ZMK_SUBSCRIPTION(hid_listener, zmk_mouse_state_changed);
+ZMK_SUBSCRIPTION(hid_listener, zmk_mouse_move_state_changed);
+ZMK_SUBSCRIPTION(hid_listener, zmk_mouse_scroll_state_changed);

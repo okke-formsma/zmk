@@ -57,7 +57,8 @@
 
 /* -127 to 127, barely usable beyond about 10 */
 #define SCROLL_VERT(vert) ((vert)&0xFF)
-
+#define SCROLL_VERT_DECODE(encoded) ((encoded)&0x00FF)
 #define SCROLL_HOR(hor) (((hor)&0xFF) << 8)
+#define SCROLL_HOR_DECODE(encoded) (((encoded)&0xFF00) >> 8)
 
 #define WHEEL(hor, vert) (SCROLL_HOR(hor) + SCROLL_VERT(vert))
