@@ -11,6 +11,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
+#include <zmk/events/mouse_button_state_changed.h>
 #include <zmk/events/mouse_move_state_changed.h>
 #include <zmk/events/mouse_scroll_state_changed.h>
 #include <zmk/events/modifiers_state_changed.h>
@@ -152,6 +153,18 @@ static int hid_listener_mouse_scroll_released(const struct zmk_mouse_scroll_stat
     return 0;
 }
 
+static void hid_listener_mouse_button_pressed(const struct zmk_mouse_button_state_changed *ev) {
+    LOG_DBG("buttons: 0x%02X", ev->buttons);
+    zmk_hid_mouse_buttons_press(ev->buttons);
+    mouse_timer_ref();
+}
+
+static void hid_listener_mouse_button_released(const struct zmk_mouse_button_state_changed *ev) {
+    LOG_DBG("buttons: 0x%02X", ev->buttons);
+    zmk_hid_mouse_buttons_release(ev->buttons);
+    mouse_timer_unref();
+}
+
 int hid_listener(const zmk_event_t *eh) {
     const struct zmk_keycode_state_changed *kc_ev = as_zmk_keycode_state_changed(eh);
     if (kc_ev) {
@@ -180,10 +193,20 @@ int hid_listener(const zmk_event_t *eh) {
         }
         return 0;
     }
+    const struct zmk_mouse_button_state_changed *mbt_ev = as_zmk_mouse_button_state_changed(eh);
+    if (mbt_ev) {
+        if (mbt_ev->state) {
+            hid_listener_mouse_button_pressed(mbt_ev);
+        } else {
+            hid_listener_mouse_button_released(mbt_ev);
+        }
+        return 0;
+    }
     return 0;
 }
 
 ZMK_LISTENER(hid_listener, hid_listener);
 ZMK_SUBSCRIPTION(hid_listener, zmk_keycode_state_changed);
+ZMK_SUBSCRIPTION(hid_listener, zmk_mouse_button_state_changed);
 ZMK_SUBSCRIPTION(hid_listener, zmk_mouse_move_state_changed);
 ZMK_SUBSCRIPTION(hid_listener, zmk_mouse_scroll_state_changed);
