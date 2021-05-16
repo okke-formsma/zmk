@@ -30,13 +30,13 @@
 
 /* Mouse move behavior */
 
-#define MOVE_UP MOVE_VERT(1)
+#define MOVE_UP MOVE_VERT(100)
 
-#define MOVE_DOWN MOVE_VERT(-1)
+#define MOVE_DOWN MOVE_VERT(-100)
 
-#define MOVE_LEFT MOVE_HOR(-1)
+#define MOVE_LEFT MOVE_HOR(-100)
 
-#define MOVE_RIGHT MOVE_HOR(1)
+#define MOVE_RIGHT MOVE_HOR(100)
 
 /* -32767 to 32767, barely usable beyond about 50 (probably depends on screen resolution) */
 #define MOVE_VERT(vert) ((-(vert)) & 0xFFFF)
@@ -47,13 +47,13 @@
 
 /* Mouse scroll behavior */
 
-#define SCROLL_UP SCROLL_VERT(1)
+#define SCROLL_UP SCROLL_VERT(10)
 
-#define SCROLL_DOWN SCROLL_VERT(-1)
+#define SCROLL_DOWN SCROLL_VERT(-10)
 
-#define SCROLL_LEFT SCROLL_HOR(-1)
+#define SCROLL_LEFT SCROLL_HOR(-10)
 
-#define SCROLL_RIGHT SCROLL_HOR(1)
+#define SCROLL_RIGHT SCROLL_HOR(10)
 
 /* -127 to 127, barely usable beyond about 10 */
 #define SCROLL_VERT(vert) ((vert)&0xFF)

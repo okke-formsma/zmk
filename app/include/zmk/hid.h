@@ -309,10 +309,8 @@ int zmk_hid_mouse_button_press(zmk_mouse_button_t button);
 int zmk_hid_mouse_button_release(zmk_mouse_button_t button);
 int zmk_hid_mouse_buttons_press(zmk_mouse_button_flags_t buttons);
 int zmk_hid_mouse_buttons_release(zmk_mouse_button_flags_t buttons);
-int zmk_hid_mouse_movement_press(int16_t x, int16_t y);
-int zmk_hid_mouse_movement_release(int16_t x, int16_t y);
-int zmk_hid_mouse_scroll_press(int8_t hor, int8_t vert);
-int zmk_hid_mouse_scroll_release(int8_t hor, int8_t vert);
+void zmk_hid_mouse_movement_set(int16_t x, int16_t y);
+void zmk_hid_mouse_scroll_set(int8_t hor, int8_t vert);
 void zmk_hid_mouse_clear();
 
 struct zmk_hid_keyboard_report *zmk_hid_get_keyboard_report();
