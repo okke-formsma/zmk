@@ -12,9 +12,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/event_manager.h>
 #include <zmk/events/mouse_button_state_changed.h>
 #include <zmk/events/mouse_move_state_changed.h>
-#include <zmk/events/mouse_move_tick.h>
 #include <zmk/events/mouse_scroll_state_changed.h>
-#include <zmk/events/mouse_scroll_tick.h>
+#include <zmk/events/mouse_tick.h>
 #include <zmk/hid.h>
 #include <zmk/endpoints.h>
 #include <zmk/mouse.h>
@@ -27,16 +26,15 @@ static void clear_mouse_state() {
     scroll_speed = (struct vector2d){0};
 }
 
-static void zmk_mouse_tick(struct k_work *work) {
-    ZMK_EVENT_RAISE(zmk_mouse_move_tick(move_speed.x, move_speed.y, k_uptime_get()));
-    ZMK_EVENT_RAISE(zmk_mouse_scroll_tick(scroll_speed.x, scroll_speed.y, k_uptime_get()));
-    int rc = zmk_endpoints_send_mouse_report();
-    if (rc != 0) {
-        LOG_ERR("Failed to send mouse report, error: %d", rc);
-    }
+static void mouse_tick_timer_handler(struct k_work *work) {
+    zmk_hid_mouse_movement_set(0, 0);
+    zmk_hid_mouse_scroll_set(0, 0);
+    ZMK_EVENT_RAISE(
+        zmk_mouse_tick(move_speed.x, move_speed.y, scroll_speed.x, scroll_speed.y, k_uptime_get()));
+    zmk_endpoints_send_mouse_report();
 }
 
-K_WORK_DEFINE(mouse_tick, &zmk_mouse_tick);
+K_WORK_DEFINE(mouse_tick, &mouse_tick_timer_handler);
 
 void mouse_timer_cb(struct k_timer *dummy) { k_work_submit(&mouse_tick); }
 
@@ -49,6 +47,8 @@ void mouse_timer_ref() {
         k_timer_start(&mouse_timer, K_NO_WAIT, K_MSEC(10));
     }
     mouse_timer_ref_count += 1;
+    // trigger the first mouse tick event immediately
+    mouse_tick_timer_handler(NULL);
 }
 
 void mouse_timer_unref() {
@@ -88,13 +88,13 @@ static void listener_mouse_scroll_released(const struct zmk_mouse_scroll_state_c
 static void listener_mouse_button_pressed(const struct zmk_mouse_button_state_changed *ev) {
     LOG_DBG("buttons: 0x%02X", ev->buttons);
     zmk_hid_mouse_buttons_press(ev->buttons);
-    mouse_timer_ref();
+    zmk_endpoints_send_mouse_report();
 }
 
 static void listener_mouse_button_released(const struct zmk_mouse_button_state_changed *ev) {
     LOG_DBG("buttons: 0x%02X", ev->buttons);
     zmk_hid_mouse_buttons_release(ev->buttons);
-    mouse_timer_unref();
+    zmk_endpoints_send_mouse_report();
 }
 
 int mouse_listener(const zmk_event_t *eh) {

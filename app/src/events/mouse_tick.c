@@ -5,6 +5,6 @@
  */
 
 #include <kernel.h>
-#include <zmk/events/mouse_scroll_tick.h>
+#include <zmk/events/mouse_tick.h>
 
-ZMK_EVENT_IMPL(zmk_mouse_scroll_tick);
+ZMK_EVENT_IMPL(zmk_mouse_tick);
