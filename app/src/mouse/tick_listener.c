@@ -80,14 +80,6 @@ static int64_t ms_since_start(int64_t start, int64_t now) {
     return move_duration;
 }
 
-static struct vector2d move_constant(struct vector2d speed, int64_t time_elapsed_ms) {
-    float time_elapsed_s = time_elapsed_ms / 1000.0;
-    return (struct vector2d){
-        .x = speed.x * time_elapsed_s,
-        .y = speed.y * time_elapsed_s,
-    };
-}
-
 static float speed(struct movement_config *config, float max_speed, int64_t duration_ms) {
     // Calculate the speed based on MouseKeysAccel
     // See https://en.wikipedia.org/wiki/Mouse_keys
@@ -95,9 +87,7 @@ static float speed(struct movement_config *config, float max_speed, int64_t dura
         return max_speed;
     }
     float time_fraction = (float)duration_ms / config->time_to_max_speed_ms;
-    //   return max_speed * powf(time_fraction, config->acceleration_exponent);
-    // hardcode acceleration component at 2.
-    return max_speed * time_fraction * time_fraction;
+    return max_speed * powf(time_fraction, config->acceleration_exponent);
 }
 
 static void track_remainder(float *move, float *remainder) {
