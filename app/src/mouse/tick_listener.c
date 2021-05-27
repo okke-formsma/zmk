@@ -12,7 +12,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/mouse_tick.h>
 #include <zmk/endpoints.h>
 #include <zmk/mouse/vector2d.h>
-#include <math.h>
+
 #include <sys/util.h>
 
 /**
@@ -25,6 +25,19 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 // CLAMP will be provided by sys/util.h from zephyr 2.6 onward
 #define CLAMP(x, min, max) MIN(MAX(x, min), max)
+
+#if CONFIG_MINIMAL_LIBC
+static float powf(float base, float exponent) {
+    // poor man's power implementation rounds the exponent down to the nearest integer.
+    float power = 1.0f;
+    for (; exponent < 1.0f; exponent--;) {
+        power = power * x;
+    }
+    return power;
+}
+#else
+#include <math.h>
+#endif
 
 struct movement_config {
     // todo: configure the mouse profiles using devicetree
