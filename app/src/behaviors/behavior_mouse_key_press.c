@@ -16,6 +16,8 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
+#if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
+
 static int behavior_mouse_key_press_init(const struct device *dev) { return 0; };
 
 static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
@@ -42,3 +44,5 @@ static const struct behavior_driver_api behavior_mouse_key_press_driver_api = {
         APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &behavior_mouse_key_press_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(KP_INST)
+
+#endif /* DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT) */
